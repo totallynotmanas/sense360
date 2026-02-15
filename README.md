@@ -1,4 +1,6 @@
-# sense360
+sense360
+An Assistive Wearable Sound Awareness System
+
 An assistive wearable system that detects surrounding sounds, identifies sound intensity and direction, and provides haptic alerts to help hearing-impaired users become aware of nearby calls, alarms, or hazardous noises.
 
 📌 Project Overview
@@ -7,14 +9,14 @@ This project uses:
 
 STM32F401 Black Pill
 
-MAX9814 Analog MEMS Microphone
+3 × MAX9814 Analog MEMS Microphones
 
 ESP8266 WiFi Module
 
-The system reads sound intensity using the MAX9814 microphone and transmits the data to a remote server using the ESP8266 WiFi module.
+The system reads sound intensity from multiple microphones using the STM32 internal ADC, processes direction and intensity, and transmits data to a remote server via the ESP8266 WiFi module.
 
 🧠 System Architecture
-MAX9814 → ADC (STM32) → Processing → UART → ESP8266 → WiFi
+MAX9814 (x3) → ADC (STM32) → Processing → UART → ESP8266 → WiFi
 
 🔌 Hardware Connections
 🎤 3 MEMS Microphone Connections (MAX9814)
@@ -23,7 +25,6 @@ Microphone Position	MAX9814 OUT → STM32 Pin	ADC Channel
 Left Mic	PA0	ADC1_IN0
 Right Mic	PA1	ADC1_IN1
 Back Mic	PA4	ADC1_IN4
-🔌 Full Wiring Details
 🟢 Power Connections (All 3 Mics)
 MAX9814 Pin	Connect To
 VCC	3.3V
@@ -36,15 +37,17 @@ Mic 1 OUT → PA0
 Mic 2 OUT → PA1
 Mic 3 OUT → PA4
 
-📌 Notes:
+📌 Microphone Notes
 
 ADC resolution: 12-bit
 
 Input voltage range: 0–3.3V
 
-PA0 configured as ADC1 Channel 0
+All microphones must use same GAIN and AR configuration
 
-🔹 2️⃣ ESP8266 WiFi Module Connections
+Physically space microphones for direction detection
+
+📡 ESP8266 WiFi Module Connections
 
 Using UART2 (USART2)
 
@@ -57,20 +60,30 @@ EN	3.3V	Enable pin
 RST	3.3V (Pull-up)	Reset
 ⚠️ Important Power Notes
 
-ESP8266 requires stable 3.3V supply.
+ESP8266 requires stable 3.3V
 
-Do NOT power ESP8266 from 5V.
+Do NOT power ESP8266 from 5V
 
-If unstable, use external 3.3V regulator.
+Use external 3.3V regulator if unstable
+
+Ensure common ground between ESP8266 and STM32
 
 🛠 STM32 Configuration (CubeIDE / CubeMX)
 🔹 ADC Configuration
 
 ADC1 Enabled
 
-Channel: IN0 (PA0)
+Channels:
+
+IN0 (PA0)
+
+IN1 (PA1)
+
+IN4 (PA4)
 
 Resolution: 12-bit
+
+Scan Conversion Mode: Enabled
 
 Continuous Conversion Mode: Enabled
 
@@ -84,43 +97,52 @@ TX: PA2
 
 RX: PA3
 
+Word Length: 8 bits
+
+Parity: None
+
+Stop Bits: 1
+
 🔹 LED Configuration
 
 PC13 configured as GPIO Output
 
-Used for debugging / sound detection indication
+Used for debugging and sound detection indication
 
 📡 Working Principle
 
 MAX9814 converts sound into analog voltage.
 
-STM32 reads voltage via ADC.
+STM32 reads voltage using ADC.
 
-ADC value processed in firmware.
+Firmware processes intensity and direction.
 
-Data transmitted to ESP8266 via UART.
+Processed data transmitted via UART.
 
 ESP8266 sends data over WiFi.
+
 🔍 Optional Debugging
 
 To view serial output:
 
 Use USB-TTL converter
 
-Connect to PA2 (TX)
+Connect USB-TTL RX → PA2 (STM32 TX)
 
-Baud rate: 115200
+Connect GND → GND
+
+Baud Rate: 115200
 
 📦 Components Used
 
 STM32F401 Black Pill
 
-MAX9814 Microphone Module
+3 × MAX9814 Microphone Modules
 
-ESP8266 WiFi Module
+ESP8266 WiFi Module (ESP-01)
 
 Breadboard
 
 Jumper wires
 
-3.3V power source
+Stable 3.3V power source
