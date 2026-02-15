@@ -116,14 +116,21 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-	  while (1)
-	  {
-	      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-	      HAL_Delay(500);
-	  }
-    /* USER CODE BEGIN 3 */
+      if (HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)
+      {
+          adcValue = HAL_ADC_GetValue(&hadc1);
+
+          sprintf(txBuffer, "MEMS Value: %lu\r\n", adcValue);
+
+          HAL_UART_Transmit(&huart2,
+                            (uint8_t*)txBuffer,
+                            strlen(txBuffer),
+                            HAL_MAX_DELAY);
+      }
+
+      HAL_Delay(1000);
   }
+
   /* USER CODE END 3 */
 }
 
