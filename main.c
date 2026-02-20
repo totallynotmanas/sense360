@@ -1,216 +1,202 @@
-/* USER CODE BEGIN Header */
-
-
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2026 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
-#include "main.h"
-#include "adc.h"
-#include "usart.h"
-#include "gpio.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
+#include "stm32f4xx.h"
 #include <stdio.h>
-#include <string.h>
 
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
-
-/* USER CODE BEGIN PV */
-uint32_t adcValue;
-char txBuffer[100];
-
-
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-/* USER CODE BEGIN PFP */
-
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
-
-/* USER CODE END 0 */
-
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
+void delay(volatile uint32_t t)
 {
-
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_ADC1_Init();
-  MX_USART2_UART_Init();
-  /* USER CODE BEGIN 2 */
-  HAL_ADC_Start(&hadc1);
-
-  sprintf(txBuffer, "System Started...\r\n");
-  HAL_UART_Transmit(&huart2,
-                    (uint8_t*)txBuffer,
-                    strlen(txBuffer),
-                    HAL_MAX_DELAY);
-
-  HAL_Delay(3000);
-   // allow ESP8266 to power up
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-      if (HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)
-      {
-          adcValue = HAL_ADC_GetValue(&hadc1);
-
-          sprintf(txBuffer, "MEMS Value: %lu\r\n", adcValue);
-
-          HAL_UART_Transmit(&huart2,
-                            (uint8_t*)txBuffer,
-                            strlen(txBuffer),
-                            HAL_MAX_DELAY);
-      }
-
-      HAL_Delay(1000);
-  }
-
-  /* USER CODE END 3 */
+    while(t--);
 }
 
-/**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
+void USART1_Init(void)
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+    RCC->APB2ENR |= (1 << 4);     // Enable USART1 clock
+    RCC->AHB1ENR |= (1 << 0);     // Enable GPIOA clock
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE2);
+    // PA9 = TX, PA10 = RX 
+    GPIOA->MODER &= ~(0xF << 18);  // Clear MODER for PA9 & PA10
+    GPIOA->MODER |=  (0xA << 18);  // Set to Alternate mode (10)
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 16;
-  RCC_OscInitStruct.PLL.PLLN = 336;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+    // Clear the Alternate Function bits first, THEN set them to AF7 (0x07)
+    GPIOA->AFR[1] &= ~((0xF << 4) | (0xF << 8)); 
+    GPIOA->AFR[1] |=  ((0x7 << 4) | (0x7 << 8));
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
+    // Note: Assuming your 84MHz baud rate worked!
+    USART1->BRR = 0x683;         // 9600 baud @ 84MHz APB2 Clock
+    USART1->CR1 |= (1 << 13);     // UE enable
+    USART1->CR1 |= (1 << 3);      // TE enable
 }
 
-/* USER CODE BEGIN 4 */
-
-/* USER CODE END 4 */
-
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
+void USART1_SendChar(char c)
 {
-  /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
-  /* USER CODE END Error_Handler_Debug */
+    while(!(USART1->SR & (1 << 7)));
+    USART1->DR = c;
 }
-#ifdef USE_FULL_ASSERT
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
-void assert_failed(uint8_t *file, uint32_t line)
+
+void USART1_SendString(char *str)
 {
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
+    while(*str)
+    {
+        USART1_SendChar(*str++);
+    }
 }
-#endif /* USE_FULL_ASSERT */
+
+// --- Add these to your USART functions ---
+
+void USART2_Init(void) {
+    RCC->APB1ENR |= (1 << 17);    // Enable USART2 clock
+    RCC->AHB1ENR |= (1 << 0);     // Enable GPIOA clock
+
+    // PA2 = TX (Connect to ESP RX), PA3 = RX (Connect to ESP TX)
+    GPIOA->MODER &= ~(0xF << 4);  
+    GPIOA->MODER |=  (0xA << 4);  
+
+    GPIOA->AFR[0] &= ~((0xF << 8) | (0xF << 12)); 
+    GPIOA->AFR[0] |=  ((0x7 << 8) | (0x7 << 12)); 
+
+    // Baud rate for 9600 @ 42MHz APB1
+    USART2->BRR = 0x1117;         
+    USART2->CR1 |= (1 << 13) | (1 << 3) | (1 << 2); // UE, TE, RE (Receive Enable)
+}
+
+// Helper to check if ESP sent anything and forward it to PC
+void Debug_Bridge(void) {
+    // If USART2 (WiFi) has received data
+    if (USART2->SR & (1 << 5)) {
+        char c = USART2->DR;
+        USART1_SendChar(c); // Forward it to PC
+    }
+}
+void ESP_Send(char *str) {
+    while(*str) {
+        while(!(USART2->SR & (1 << 7)));
+        USART2->DR = *str++;
+    }
+}
+
+// A much more reliable delay that keeps checking the ESP
+void ESP_Wait_And_Debug(uint32_t ms_estimate) {
+    for(uint32_t i = 0; i < ms_estimate; i++) {
+        for(uint32_t j = 0; j < 8400; j++) { // Roughly 1ms at 84MHz
+            Debug_Bridge();
+        }
+    }
+}
+
+// Helper to initialize Wi-Fi connection
+void ESP_Wifi_Setup(void) {
+    USART1_SendString("\r\n--- Initializing WiFi ---\r\n");
+    
+    // 1. Reset Module (Good practice to clear previous hangs)
+    ESP_Send("AT+RST\r\n");
+    for(int i=0; i<2000000; i++) Debug_Bridge(); 
+
+    // 2. Set Station Mode
+    ESP_Send("AT+CWMODE=1\r\n"); 
+    for(int i=0; i<1000000; i++) Debug_Bridge();
+    
+    // 3. Connect to WiFi - THIS TAKES TIME
+    USART1_SendString("Connecting to Router...\r\n");
+    ESP_Send("AT+CWJAP=\"Alana\",\"12345679\"\r\n");
+    
+    // Wait about 10 seconds for connection
+    for(int i=0; i<15000000; i++) Debug_Bridge(); 
+    
+    // 4. Start UDP
+    USART1_SendString("Opening UDP Port...\r\n");
+    // Verify this IP matches your Laptop's Wi-Fi IP!
+    ESP_Send("AT+CIPSTART=\"UDP\",\"192.168.x.x\",5005\r\n"); 
+    for(int i=0; i<2000000; i++) Debug_Bridge();
+    
+    USART1_SendString("\r\n--- Setup Complete ---\r\n");
+}
+
+void ADC1_Init(void)
+{
+    RCC->APB2ENR |= (1 << 8);     // Enable ADC1 clock
+    RCC->AHB1ENR |= (1 << 0);     // Enable GPIOA clock
+
+    // Configure PA0, PA1, and PA4 to Analog mode (11 in binary is 3)
+    GPIOA->MODER |= (3 << 0);     // PA0 (Channel 0)
+    GPIOA->MODER |= (3 << 2);     // PA1 (Channel 1)
+    GPIOA->MODER |= (3 << 8);     // PA4 (Channel 4)
+
+    ADC1->CR2 = 0;
+    
+    // Set sampling time for Channels 0, 1, and 4
+    ADC1->SMPR2 |= (7 << 0) | (7 << 3) | (7 << 12);  
+    
+    ADC1->CR2 |= (1 << 0);        // ADON enable
+}
+
+// Updated to accept a channel parameter
+uint16_t ADC1_Read(uint8_t channel)
+{
+    // Clear the first 5 bits of SQR3 (the 1st conversion slot)
+    ADC1->SQR3 &= ~(0x1F);        
+    
+    // Insert our target channel into SQR3
+    ADC1->SQR3 |= channel;        
+    
+    ADC1->CR2 |= (1 << 30);       // Start conversion
+    while(!(ADC1->SR & (1 << 1)));// Wait for conversion to finish
+    return ADC1->DR;
+}
+
+int main(void) {
+    USART1_Init(); // Debug/Serial Monitor
+    USART2_Init(); // Wi-Fi Module
+    ADC1_Init();
+    
+    ESP_Wifi_Setup(); // Run once to connect
+
+    char buffer[100];
+    char wifi_cmd[20];
+		uint16_t sample;
+
+    while(1) {
+			
+			
+        // Setup Max/Min trackers for all 3 microphones
+        uint16_t max0 = 0, min0 = 4095;
+        uint16_t max1 = 0, min1 = 4095;
+        uint16_t max2 = 0, min2 = 4095;
+        
+        // Sample all three repeatedly for the "window"
+        for(int i = 0; i < 8000; i++) 
+        {
+            // Read Mic 0 (PA0 -> Channel 0)
+            sample = ADC1_Read(0);
+            if(sample > max0) { max0 = sample; }
+            if(sample < min0) { min0 = sample; }
+
+            // Read Mic 1 (PA1 -> Channel 1)
+            sample = ADC1_Read(1);
+            if(sample > max1) { max1 = sample; }
+            if(sample < min1) { min1 = sample; }
+
+            // Read Mic 2 (PA4 -> Channel 4)
+            sample = ADC1_Read(4);
+            if(sample > max2) { max2 = sample; }
+            if(sample < min2) { min2 = sample; }
+        }
+				
+				Debug_Bridge();
+        
+        uint16_t vol0 = max0 - min0;
+        uint16_t vol1 = max1 - min1;
+        uint16_t vol2 = max2 - min2;
+
+        // Prepare the data string
+        int len = sprintf(buffer, "M0:%d,M1:%d,M2:%d\n", vol0, vol1, vol2);
+        
+        // 1. Send to local PC via USB (USART1)
+        USART1_SendString(buffer);
+
+        // 2. Send to Laptop via Wi-Fi (USART2)
+        sprintf(wifi_cmd, "AT+CIPSEND=%d\r\n", len);
+        ESP_Send(wifi_cmd);
+        delay(50000); // Small wait for ESP to be ready
+        ESP_Send(buffer);
+
+        delay(500000); 
+    }
+}
